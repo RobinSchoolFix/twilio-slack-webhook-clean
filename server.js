@@ -1,5 +1,3 @@
-console.log("Loaded Slack webhook:", MMS_WEBHOOK);
-
 const express = require("express");
 const axios = require("axios");
 require("dotenv").config();
@@ -12,6 +10,8 @@ app.use(express.json());
 
 // Slack webhook from .env
 const MMS_WEBHOOK = process.env.MMS_WEBHOOK;
+
+console.log("Loaded Slack webhook:", MMS_WEBHOOK);
 
 // Twilio webhook route
 app.post("/twilio", async (req, res) => {
