@@ -1,3 +1,5 @@
+console.log("Loaded Slack webhook:", MMS_WEBHOOK);
+
 const express = require("express");
 const axios = require("axios");
 require("dotenv").config();
