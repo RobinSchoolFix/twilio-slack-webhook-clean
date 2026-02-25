@@ -32,9 +32,7 @@ app.post("/twilio", async (req, res) => {
 
   // Always send text portion to Slack
   try {
-    await axios.post(MMS_WEBHOOK, {
-      text: `📩 New message from ${from}\n${body || ""}`
-    });
+   console.log("Posted text message skipped because webhook is removed");
   } catch (err) {
     console.error("Slack text error:", err.message);
   }
