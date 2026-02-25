@@ -56,9 +56,9 @@ app.post("/twilio", async (req, res) => {
 
         const fileBuffer = Buffer.from(twilioResponse.data);
 
-        // Upload to Slack as a real file
+       // Upload to Slack using the new files.uploadV2 API
 const form = new FormData();
-form.append("channels", SLACK_CHANNEL_ID);
+form.append("channel_id", SLACK_CHANNEL_ID);
 form.append("initial_comment", `New MMS from ${from}`);
 form.append("file", fileBuffer, {
   filename: `mms-${Date.now()}.jpg`,
@@ -68,7 +68,7 @@ form.append("file", fileBuffer, {
 let slackResponse;
 try {
   slackResponse = await axios.post(
-    "https://slack.com/api/files.upload",
+    "https://slack.com/api/files.uploadV2",
     form,
     {
       headers: {
@@ -82,11 +82,7 @@ try {
 } catch (err) {
   console.error("Slack MMS upload error:", err.response?.data || err.message);
 }
-      } catch (err) {
-        console.error("Slack MMS upload error:", err.message);
-      }
-    }
-  }
+  
 
   // SMS-only case
   if (numMedia === 0) {
