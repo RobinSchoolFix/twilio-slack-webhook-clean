@@ -57,21 +57,31 @@ app.post("/twilio", async (req, res) => {
         const fileBuffer = Buffer.from(twilioResponse.data);
 
         // Upload to Slack as a real file
-        const form = new FormData();
-        form.append("channels", SLACK_CHANNEL_ID);
-        form.append("file", fileBuffer, {
-          filename: `mms-${Date.now()}`,
-          contentType
-        });
+const form = new FormData();
+form.append("channels", SLACK_CHANNEL_ID);
+form.append("initial_comment", `New MMS from ${from}`);
+form.append("file", fileBuffer, {
+  filename: `mms-${Date.now()}.jpg`,
+  contentType
+});
 
-        await axios.post("https://slack.com/api/files.upload", form, {
-          headers: {
-            Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
-            ...form.getHeaders()
-          }
-        });
+let slackResponse;
+try {
+  slackResponse = await axios.post(
+    "https://slack.com/api/files.upload",
+    form,
+    {
+      headers: {
+        Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+        ...form.getHeaders()
+      }
+    }
+  );
 
-        console.log("Uploaded MMS file to Slack");
+  console.log("Slack upload response:", slackResponse.data);
+} catch (err) {
+  console.error("Slack MMS upload error:", err.response?.data || err.message);
+}
       } catch (err) {
         console.error("Slack MMS upload error:", err.message);
       }
