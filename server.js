@@ -1,97 +1,35 @@
-const express = require("express");
-const axios = require("axios");
-const FormData = require("form-data");
-require("dotenv").config();
-
-const app = express();
-
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// Slack webhook + bot token + channel
-const MMS_WEBHOOK = process.env.MMS_WEBHOOK;
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
-const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
-
-// Twilio credentials
-const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
-
-console.log("Loaded Slack webhook:", MMS_WEBHOOK);
-
-app.post("/twilio", async (req, res) => {
-  console.log("Incoming Twilio POST:", req.body);
-
-  const from = req.body.From;
-  const body = req.body.Body;
-  const numMedia = parseInt(req.body.NumMedia || "0");
-
-  // Respond to Twilio immediately
-  res.set("Content-Type", "text/xml");
-  res.send("<Response></Response>");
-
-  // Always send text portion to Slack
-  try {
-   console.log("Posted text message skipped because webhook is removed");
-  } catch (err) {
-    console.error("Slack text error:", err.message);
-  }
-
-  // If MMS exists, download + upload each file
-  if (numMedia > 0) {
-    for (let i = 0; i < numMedia; i++) {
-      const mediaUrl = req.body[`MediaUrl${i}`];
-      const contentType = req.body[`MediaContentType${i}`];
-
-      try {
-        // Download from Twilio (requires Basic Auth)
-        const twilioResponse = await axios.get(mediaUrl, {
-          responseType: "arraybuffer",
-          headers: {
-            Authorization:
-              "Basic " +
-              Buffer.from(`${TWILIO_SID}:${TWILIO_AUTH}`).toString("base64")
-          }
-        });
-
-        const fileBuffer = Buffer.from(twilioResponse.data);
-
-       // Upload to Slack using the new files.uploadV2 API
-const form = new FormData();
-form.append("channel_id", SLACK_CHANNEL_ID);
-form.append("initial_comment", `New MMS from ${from}`);
-form.append("file", fileBuffer, {
-  filename: `mms-${Date.now()}.jpg`,
-  contentType
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'node server.js'
+/opt/render/project/src/server.js:91
 });
-
-let slackResponse;
-try {
-  slackResponse = await axios.post(
-    "https://slack.com/api/files.uploadV2",
-    form,
-    {
-      headers: {
-        Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
-        ...form.getHeaders()
-      }
-    }
-  );
-
-  console.log("Slack upload response:", slackResponse.data);
-} catch (err) {
-  console.error("Slack MMS upload error:", err.response?.data || err.message);
-}
-  
-
-  // SMS-only case
-  if (numMedia === 0) {
-    console.log(`SMS from ${from}: ${body}`);
-  }
+^
+Menu
+SyntaxError: Missing catch or finally after try
+    at wrapSafe (node:internal/modules/cjs/loader:1638:18)
+    at Module._compile (node:internal/modules/cjs/loader:1680:20)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+Node.js v22.22.0
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'node server.js'
+/opt/render/project/src/server.js:91
 });
-
-// Render port
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+^
+SyntaxError: Missing catch or finally after try
+    at wrapSafe (node:internal/modules/cjs/loader:1638:18)
+    at Module._compile (node:internal/modules/cjs/loader:1680:20)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+Node.js v22.22.0
