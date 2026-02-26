@@ -3,8 +3,6 @@ const axios = require("axios");
 const FormData = require("form-data");
 require("dotenv").config();
 
-console.log("Using Slack bot token:", SLACK_BOT_TOKEN.slice(0, 15));
-
 const app = express();
 
 app.use(express.urlencoded({ extended: true }));
@@ -14,6 +12,8 @@ app.use(express.json());
 const MMS_WEBHOOK = process.env.MMS_WEBHOOK;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
+
+console.log("Using Slack bot token:", SLACK_BOT_TOKEN.slice(0, 15));
 
 // Twilio credentials
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
