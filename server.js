@@ -8,19 +8,17 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Slack webhook + bot token + channel
-const MMS_WEBHOOK = process.env.MMS_WEBHOOK;
+// Environment variables
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
 
-console.log("Using Slack bot token:", SLACK_BOT_TOKEN.slice(0, 15));
-
-// Twilio credentials
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
 
-console.log("Loaded Slack webhook:", MMS_WEBHOOK);
+console.log("Slack token loaded:", SLACK_BOT_TOKEN?.slice(0, 15));
+console.log("Slack channel:", SLACK_CHANNEL_ID);
 
+// Twilio webhook
 app.post("/twilio", async (req, res) => {
   console.log("Incoming Twilio POST:", req.body);
 
@@ -32,73 +30,78 @@ app.post("/twilio", async (req, res) => {
   res.set("Content-Type", "text/xml");
   res.send("<Response></Response>");
 
-  // Always send text portion to Slack
   try {
-    console.log("Posted text message skipped because webhook is removed");
-  } catch (err) {
-    console.error("Slack text error:", err.message);
-  }
+    // If SMS only (no media)
+    if (numMedia === 0) {
+      console.log(`SMS from ${from}: ${body}`);
 
-  // If MMS exists, download + upload each file
-  if (numMedia > 0) {
+      await axios.post(
+        "https://slack.com/api/chat.postMessage",
+        {
+          channel: SLACK_CHANNEL_ID,
+          text: `New SMS from ${from}:\n${body || "(no message body)"}`
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      return;
+    }
+
+    // If MMS exists
     for (let i = 0; i < numMedia; i++) {
       const mediaUrl = req.body[`MediaUrl${i}`];
+      const contentType =
+        req.body[`MediaContentType${i}`] || "image/jpeg";
       const extension = contentType.split("/")[1] || "jpg";
 
-      try {
-        // Download from Twilio (requires Basic Auth)
-        const twilioResponse = await axios.get(mediaUrl, {
-          responseType: "arraybuffer",
-          headers: {
-            Authorization:
-              "Basic " +
-              Buffer.from(`${TWILIO_SID}:${TWILIO_AUTH}`).toString("base64")
-          }
-        });
-
-        const fileBuffer = Buffer.from(twilioResponse.data);
-
-        // Upload to Slack using the new files.uploadV2 API
-        const form = new FormData();
-        form.append("channel_id", SLACK_CHANNEL_ID);
-        form.append("initial_comment", `New MMS from ${from}`);
-        form.append("file", fileBuffer, {
-          filename: `mms-${Date.now()}.${extension}`,
-          contentType
-        });
-
-        slackResponse = await axios.post(
-  "https://slack.com/api/files.upload",
-  form,
-  {
-    headers: {
-      Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
-      ...form.getHeaders()
-    }
-  }
-);
-
-console.log("Slack upload response:", slackResponse.data);
-        } catch (err) {
-          console.error(
-            "Slack MMS upload error:",
-            err.response?.data || err.message
-          );
+      // Download media from Twilio
+      const twilioResponse = await axios.get(mediaUrl, {
+        responseType: "arraybuffer",
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(`${TWILIO_SID}:${TWILIO_AUTH}`).toString("base64")
         }
+      });
 
-      } catch (err) {
-        console.error("Twilio media download error:", err.message);
-      }
+      const fileBuffer = Buffer.from(twilioResponse.data);
+
+      const form = new FormData();
+      form.append("channels", SLACK_CHANNEL_ID);
+      form.append("initial_comment", `New MMS from ${from}`);
+      form.append("file", fileBuffer, {
+        filename: `mms-${Date.now()}.${extension}`,
+        contentType
+      });
+
+      const slackResponse = await axios.post(
+        "https://slack.com/api/files.upload",
+        form,
+        {
+          headers: {
+            Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+            ...form.getHeaders()
+          }
+        }
+      );
+
+      console.log("Slack upload response:", slackResponse.data);
     }
-  }
 
-  // SMS-only case
-  if (numMedia === 0) {
-    console.log(`SMS from ${from}: ${body}`);
+  } catch (err) {
+    console.error(
+      "Processing error:",
+      err.response?.data || err.message
+    );
   }
 });
 
-// Render port
+// Start server (Render uses PORT env)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
