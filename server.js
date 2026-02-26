@@ -3,6 +3,8 @@ const axios = require("axios");
 const FormData = require("form-data");
 require("dotenv").config();
 
+console.log("Using Slack bot token:", SLACK_BOT_TOKEN.slice(0, 15));
+
 const app = express();
 
 app.use(express.urlencoded({ extended: true }));
