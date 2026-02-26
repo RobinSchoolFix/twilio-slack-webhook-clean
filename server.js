@@ -8,17 +8,40 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Environment variables
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
-const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
+/* ===============================
+   Environment Variables
+================================= */
 
-const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
+const {
+  SLACK_BOT_TOKEN,
+  SLACK_CHANNEL_ID,
+  TWILIO_ACCOUNT_SID,
+  TWILIO_AUTH_TOKEN,
+  PORT
+} = process.env;
 
-console.log("Slack token loaded:", SLACK_BOT_TOKEN?.slice(0, 15));
-console.log("Slack channel:", SLACK_CHANNEL_ID);
+/* ===============================
+   Validate Required ENV Vars
+================================= */
 
-// Twilio webhook
+function requireEnv(name, value) {
+  if (!value) {
+    console.error(`Missing required environment variable: ${name}`);
+    process.exit(1);
+  }
+}
+
+requireEnv("SLACK_BOT_TOKEN", SLACK_BOT_TOKEN);
+requireEnv("SLACK_CHANNEL_ID", SLACK_CHANNEL_ID);
+requireEnv("TWILIO_ACCOUNT_SID", TWILIO_ACCOUNT_SID);
+requireEnv("TWILIO_AUTH_TOKEN", TWILIO_AUTH_TOKEN);
+
+console.log("Environment variables loaded successfully.");
+
+/* ===============================
+   Twilio Webhook Endpoint
+================================= */
+
 app.post("/twilio", async (req, res) => {
   console.log("Incoming Twilio POST:", req.body);
 
@@ -26,20 +49,21 @@ app.post("/twilio", async (req, res) => {
   const body = req.body.Body;
   const numMedia = parseInt(req.body.NumMedia || "0");
 
-  // Respond to Twilio immediately
-  res.set("Content-Type", "text/xml");
-  res.send("<Response></Response>");
+  // Respond immediately to Twilio
+  res.status(200).type("text/xml").send("<Response></Response>");
 
   try {
-    // If SMS only (no media)
+    // =============================
+    // SMS ONLY
+    // =============================
     if (numMedia === 0) {
       console.log(`SMS from ${from}: ${body}`);
 
-      await axios.post(
+      const slackResponse = await axios.post(
         "https://slack.com/api/chat.postMessage",
         {
           channel: SLACK_CHANNEL_ID,
-          text: `New SMS from ${from}:\n${body || "(no message body)"}`
+          text: `📩 New SMS from ${from}\n${body || "(no message body)"}`
         },
         {
           headers: {
@@ -49,23 +73,31 @@ app.post("/twilio", async (req, res) => {
         }
       );
 
+      console.log("Slack text response:", slackResponse.data);
       return;
     }
 
-    // If MMS exists
+    // =============================
+    // MMS WITH MEDIA
+    // =============================
     for (let i = 0; i < numMedia; i++) {
       const mediaUrl = req.body[`MediaUrl${i}`];
       const contentType =
         req.body[`MediaContentType${i}`] || "image/jpeg";
+
       const extension = contentType.split("/")[1] || "jpg";
 
-      // Download media from Twilio
+      console.log(`Downloading media ${i + 1}:`, mediaUrl);
+
+      // Download from Twilio (requires Basic Auth)
       const twilioResponse = await axios.get(mediaUrl, {
         responseType: "arraybuffer",
         headers: {
           Authorization:
             "Basic " +
-            Buffer.from(`${TWILIO_SID}:${TWILIO_AUTH}`).toString("base64")
+            Buffer.from(
+              `${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`
+            ).toString("base64")
         }
       });
 
@@ -73,7 +105,7 @@ app.post("/twilio", async (req, res) => {
 
       const form = new FormData();
       form.append("channels", SLACK_CHANNEL_ID);
-      form.append("initial_comment", `New MMS from ${from}`);
+      form.append("initial_comment", `📷 New MMS from ${from}`);
       form.append("file", fileBuffer, {
         filename: `mms-${Date.now()}.${extension}`,
         contentType
@@ -101,8 +133,20 @@ app.post("/twilio", async (req, res) => {
   }
 });
 
-// Start server (Render uses PORT env)
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+/* ===============================
+   Health Check Route
+================================= */
+
+app.get("/", (req, res) => {
+  res.status(200).send("Server is running.");
+});
+
+/* ===============================
+   Start Server (Render-safe)
+================================= */
+
+const listenPort = PORT || 3000;
+
+app.listen(listenPort, "0.0.0.0", () => {
+  console.log(`Server running on port ${listenPort}`);
 });
