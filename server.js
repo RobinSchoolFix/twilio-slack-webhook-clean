@@ -43,7 +43,7 @@ app.post("/twilio", async (req, res) => {
   if (numMedia > 0) {
     for (let i = 0; i < numMedia; i++) {
       const mediaUrl = req.body[`MediaUrl${i}`];
-      const contentType = req.body[`MediaContentType${i}`];
+      const extension = contentType.split("/")[1] || "jpg";
 
       try {
         // Download from Twilio (requires Basic Auth)
@@ -63,24 +63,22 @@ app.post("/twilio", async (req, res) => {
         form.append("channel_id", SLACK_CHANNEL_ID);
         form.append("initial_comment", `New MMS from ${from}`);
         form.append("file", fileBuffer, {
-          filename: `mms-${Date.now()}.jpg`,
+          filename: `mms-${Date.now()}.${extension}`,
           contentType
         });
 
-        let slackResponse;
-        try {
-          slackResponse = await axios.post(
-            "https://slack.com/api/files.uploadV2",
-            form,
-            {
-              headers: {
-                Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
-                ...form.getHeaders()
-              }
-            }
-          );
+        slackResponse = await axios.post(
+  "https://slack.com/api/files.upload",
+  form,
+  {
+    headers: {
+      Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+      ...form.getHeaders()
+    }
+  }
+);
 
-          console.log("Slack upload response:", slackResponse.data);
+console.log("Slack upload response:", slackResponse.data);
         } catch (err) {
           console.error(
             "Slack MMS upload error:",
